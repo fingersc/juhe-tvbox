@@ -51,7 +51,11 @@ jobs:
       - name: Step 3 - Run separate_sources.py to filter adult sources
         run: python separate_sources.py
 
-      # 步骤7: (修改) 提交并推送生成的 config.json 文件
+      # 步骤7: (新增) 注入自定义站点到 sites 数组首位
+      - name: Step 4 - Inject custom sites
+        run: python inject_custom_site.py
+        
+      # 步骤8: (修改) 提交并推送生成的 config.json 文件
       - name: Commit and push changes
         uses: stefanzweifel/git-auto-commit-action@v7
         with:
