@@ -17,7 +17,7 @@ CUSTOM_SITES = [
         "key": "dbzy",
         "name": "豆瓣资源",
         "type": 1,
-        "api": "shturl.cc/7UPHSIIbQN3rnNuqGgGFA3rpA",
+        "api": "https://dbzy.tv/api.php/provide/vod",
         "searchable": 1,
         "quickSearch": 1,
         "filterable": 1
