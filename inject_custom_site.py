@@ -14,18 +14,19 @@ import os
 CONFIG_FILE = 'config.json'
 
 # 1) 顶层 spider（每次运行强制写入并放到文件第二行）
-SPIDER_URL = "https://gh.xxooo.cf/https://github.com/fingersc/juhe-tvbox/raw/refs/heads/main/jar/spider.js"
+SPIDER_URL = "https://gh.xxooo.cf/https://github.com/qist/tvbox/raw/refs/heads/master/jar/fan.txt"
 
 # 2) 自定义站点（前插到 sites[0]，字段保持原样）
 CUSTOM_SITES = [
     {
         "key": "Douban",
         "name": "豆瓣影视库",
-        "type": 3,
-        "api": "csp_DouDou",
-        "searchable": 0,
-        "quickSearch": 0,
-        "filterable": 0
+        "type":3,
+        "api":"csp_DouDouGuard",
+        "indexs":1,
+        "searchable":0,
+        "quickSearch":0,
+        "changeable":0
     }
 ]
 
