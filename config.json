@@ -456,6 +456,11 @@
             "api": "https://jszyapi.com/api.php/provide/vod/?ac=list",
             "detail": "https://jszyapi.com"
         },
+        "🚀小马_建安采集": {
+            "name": "🚀小马·影视 | 建安",
+            "api": "http://154.219.117.232:9981/jacloudapi.php/provide/vod",
+            "detail": "http://154.219.117.232:9981"
+        },
         "🚀小马_率率": {
             "name": "🚀小马·影视 | 率率[直连]",
             "api": "https://suoniapi.com/api.php/provide/vod/?ac=list",
@@ -508,6 +513,13 @@
         }
     },
     "sites": [
+        {
+            "key": "豆瓣",
+            "name": "豆瓣热播",
+            "type": 3,
+            "api": "csp_Douban",
+            "searchable": 0
+        },
         {
             "key": "feifan",
             "name": "非凡资源",
@@ -1322,6 +1334,15 @@
             "key": "🚀小马_极速资源",
             "name": "🚀小马·影视 | 极速[直连]",
             "api": "https://jszyapi.com/api.php/provide/vod/?ac=list",
+            "type": 1,
+            "searchable": 1,
+            "quickSearch": 1,
+            "filterable": 1
+        },
+        {
+            "key": "🚀小马_建安采集",
+            "name": "🚀小马·影视 | 建安",
+            "api": "http://154.219.117.232:9981/jacloudapi.php/provide/vod",
             "type": 1,
             "searchable": 1,
             "quickSearch": 1,
