@@ -14,11 +14,13 @@ CONFIG_FILE = 'config.json'
 # 自定义站点（按需修改，格式与 TVBox sites 数组条目一致，字段原样写入）
 CUSTOM_SITES = [
     {
-        "key": "豆瓣",
-        "name": "豆瓣热播",
-        "type": 3,           # 3 = jar / DrPy JS 规则（非 xml/json 采集接口）
-        "api": "csp_Douban", # 播放器内置 DrPy JS 规则名，非 http 链接
-        "searchable": 0
+        "key": "dbzy",
+        "name": "豆瓣资源",
+        "type": 1,
+        "api": "shturl.cc/7UPHSIIbQN3rnNuqGgGFA3rpA",
+        "searchable": 1,
+        "quickSearch": 1,
+        "filterable": 1
     }
 ]
 
