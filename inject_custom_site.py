@@ -22,11 +22,10 @@ CUSTOM_SITES = [
         "key": "Douban",
         "name": "豆瓣影视库",
         "type": 3,
-        "api": "csp_Douban",
+        "api": "csp_DouDou",
         "searchable": 0,
         "quickSearch": 0,
-        "filterable": 0,
-        "ext": "https://gitcode.net/wexfnw/wex/-/raw/master/douban.json"
+        "filterable": 0
     }
 ]
 
