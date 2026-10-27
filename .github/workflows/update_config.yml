@@ -1,9 +1,6 @@
 name: Update, Test, and Filter Configs
 
 on:
-  push:
-    branches:
-      - main
   schedule:
     # 每天执行一次 (UTC时间)
     - cron: '0 0 * * 1'
