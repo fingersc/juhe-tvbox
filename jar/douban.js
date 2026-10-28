@@ -2,46 +2,51 @@
  * 豆瓣影视库 —— 独立版 JS Spider（替代 jar 内的 csp_DouDouGuard）
  * 目标：不依赖任何 jar，配置里 api 直接指向本文件即可。
  *
- * ============================ 数据源（v3 已修正） ============================
- * ★ v3 的关键改版：列表全部改回**网页版同源**接口，与 movie.douban.com/explore
- *   逐条一致。v2 用的 rexxar（App 端推荐流）是另一套内容池，和网页版对不上。
+ * ============================ 数据源（v4 已修正） ============================
+ * ★ 前两版都栽在「接口选错」上，这里把结论钉死，别再改回去：
  *
- *   列表（网页版同源）  movie.douban.com/j/search_subjects
- *       type=movie|tv  tag=热门|华语|美剧|日本动画|综艺...  sort=recommend|time|rank
- *       —— 这正是网页版「选电影 / 选剧集」每个 tab 背后调的接口。
+ *   网页版 movie.douban.com/explore 的每个 tab，背后只有一个接口：
+ *
+ *     GET m.douban.com/rexxar/api/v2/subject/recent_hot/{movie|tv}
+ *         ?start=&limit=&category=&type=
+ *
+ *     category  电影：热门 | 最新 | 豆瓣高分 | 冷门佳片
+ *               剧集：tv      综艺：show
+ *     type      电影：全部 | 华语 | 欧美 | 韩国 | 日本
+ *               剧集：tv | tv_domestic | tv_american | tv_japanese
+ *                     | tv_korean | tv_animation | tv_documentary
+ *               综艺：show | show_domestic | show_foreign
+ *
+ *   ★★ 这个接口是「网页池」= 热度与新增**混合**排序。
+ *      j/search_subjects?sort=time（v3 用的）是另一个池子「纯新增」，
+ *      缺热播片、顺序也不同 —— 这就是用户看到的「和网页版对不上」。
+ *      j/search 的 sort=recommend 出来的也不是网页「热门电影」（那是 App 池）。
+ *      ⇒ j/search_subjects 全部弃用，一行都不留。
+ *
  *   详情（只用它）      m.douban.com/rexxar/api/v2/{movie,tv}/{id}
- *   兜底（App 端池）    m.douban.com/rexxar/api/v2/{movie,tv}/recommend
- *       只在 j/search 被风控、或该筛选组合确实没有内容时用一次。
+ *   组合筛选（选电影/选电视剧页）m.douban.com/rexxar/api/v2/{movie,tv}/recommend
  *
  * ============================== 参数速查（实测） ==============================
- *   j/search 的 sort 三档：recommend=热门  time=最新  rank=豆瓣高分
- *   ★ 地区 tag 可以与 sort 叠加：tag=华语&sort=rank → 华语高分（霸王别姬/无间道）
- *   ★ 剧集没有地区维度，只能按类型 tag；「动画」的真实 tag 是 **日本动画**
- *     （写「动画/动漫/番剧」全部 0 条，这是换源时最容易踩的坑）
- *   ★ 综艺：tv tag=综艺 三档都纯综艺，华语+国外混排，与网页版一致；
- *     地区（华语/国外）j/search 没有这个维度 → 只有 rexxar tags=综艺,华语|国外
+ *   ★ limit 实测可取到 100；首页 start=0，翻页 start += limit，越界返回空数组。
+ *   ★ 返回体自带 tags 元数据（每个 tab 的 title/category/types），
+ *     分栏和地区枚举就是照着它抄的，服务端加了新档位也能一眼看出来。
+ *   ★ 电影「冷门佳片 + 韩国」只有 4 条 —— 是服务端真的只有这么多，不是 bug。
  *
- * ================================ 风控（重要） ================================
- *   j/new_search_subjects（网页版的**组合筛选**接口）按出口 IP 风控，命中后固定返回
- *     {"msg":"检测到有异常请求从您的IP发出，请登录再试!","r":1}
- *   —— 加 Cookie(bid/ll)、换 Referer、加 X-Requested-With、改 UA 全部无效。
- *   所以：组合筛选（类型+地区+年代）只走 rexxar，不再碰它。
- *   j/search_subjects **不在风控名单**（60 次连续无间隔实测 60/60 成功），
- *   但为了不把 IP 打进去，这里做了三重保护：
- *     1) URL 级 60 秒缓存（翻页/来回切筛选不重复打）
- *     2) 命中风控响应 → 全局熔断 5 分钟，期间直接走 rexxar 兜底
- *     3) 单页一次请求，不做并发、不做失败重试风暴
+ * ================================ 重要取舍 ================================
+ *   失败（网络/风控/结构变更）时**不做跨池兜底**，直接返回空列表。
+ *   理由：跨池兜底的后果是「列表看着有内容、但和网页版对不上」，
+ *        这正是本次要修的 bug。宁可空，不可错。
+ *   每个 URL 仍然有 60 秒缓存 + 一次重试，防抖不靠兜底。
  *
  * 网络说明：req() 底层走宿主 OkGoHelper.getDefaultClient()，与播放器同一套
  *           DNS 决议 / 连接池 / 双栈优选，不额外开连接。
  *
- * 版本：v3  改动请同步 bump 配置里的 ?v=N（否则客户端 7 天缓存不更新）
+ * 版本：v4  改动请同步 bump 配置里的 ?v=N（否则客户端 7 天缓存不更新）
  */
 
 var UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
 var HDR = {'User-Agent': UA, 'Referer': 'https://movie.douban.com/explore'};
 var SITE = 'https://movie.douban.com';
-var JSEARCH = SITE + '/j/search_subjects';
 var RX = 'https://m.douban.com/rexxar/api/v2';
 var PAGE = 20;
 var TTL = 15000;
@@ -127,60 +132,17 @@ function pack(list, pg, total) {
     });
 }
 
-/* ============================================================== j/search */
-// 网页版同源。返回 null = 请求失败/被风控（调用方走兜底）；
-// 返回 [] = 请求成功但真的没有内容（调用方可以再兜一次或如实返回空）。
-
-var BLOCK_UNTIL = 0;
-var BLOCK_MS = 5 * 60 * 1000;
-
-function jBlocked() {
-    return nowMs() < BLOCK_UNTIL;
-}
-
-function jSearch(type, tag, sort, start) {
-    if (jBlocked()) return null;
-    var url = JSEARCH + '?type=' + enc(type) + '&tag=' + enc(tag || '热门') +
-        '&sort=' + enc(sort || 'recommend') + '&page_limit=' + PAGE + '&page_start=' + start;
-    var j = httpJson(url);
-    if (!j) return null;
-    // 风控响应：{"msg":"检测到有异常请求从您的IP发出，请登录再试!","r":1}
-    if (j.r === 1 || j.msg) {
-        BLOCK_UNTIL = nowMs() + BLOCK_MS;
-        return null;
-    }
-    if (!j.subjects) return null;
-    var out = [];
-    for (var i = 0; i < j.subjects.length; i++) {
-        var it = j.subjects[i];
-        if (!it) continue;
-        var id = String(it.id == null ? '' : it.id);
-        if (!/^\d+$/.test(id)) continue;
-        out.push(card(id, it.title, it.cover, it.rate));
-    }
-    return out;
-}
-
-/* ============================================================ rexxar 兜底 */
-// rexxar 的 sort 语义（取自接口返回的 sorts 元数据，非猜测）：
-//   T=综合排序  U=近期热度  R=首映时间  S=高分优先
-//   注意 sort=T 在**不带任何 tags** 时服务端只回 8 条，所以默认一律用 U。
-
-function rxUrl(kind, tags, sort, start) {
-    var q = '?refresh=0&start=' + start + '&count=' + PAGE + '&uncollect=false&sort=' + sort;
-    if (tags) q += '&tags=' + enc(tags);
-    return RX + '/' + kind + '/recommend' + q;
-}
-
+/* =========================================================== 响应归一化 */
 // 坑 1：items 里会混进 type=chart 的「豆瓣榜单」条目（id 是 movie_comedy 这种
 //       非数字串），点进去详情必然 404 ⇒ 一律丢弃，判据用「id 必须纯数字」。
 // 坑 2：封面统一取 pic.large，cover_url 常为 null。
-function fromRecommend(j) {
+function fromItems(j) {
     var out = [];
-    if (!j) return out;
-    var arr = j.items || [];
+    if (!j || !j.items) return out;
+    var arr = j.items;
     for (var i = 0; i < arr.length; i++) {
         var it = arr[i];
+        if (!it) continue;
         var id = String(it.id == null ? '' : it.id);
         if (!/^\d+$/.test(id)) continue;
         var cover = '';
@@ -193,48 +155,59 @@ function fromRecommend(j) {
     return out;
 }
 
+/* ========================================================== recent_hot */
+// 网页版 explore 每个 tab 背后的唯一接口。order 与网页版**逐条同序**。
+function recentHot(seg, category, type, start) {
+    var url = RX + '/subject/recent_hot/' + seg +
+        '?start=' + start + '&limit=' + PAGE +
+        '&category=' + enc(category) + '&type=' + enc(type);
+    var j = httpJson(url);
+    if (!j) j = httpJson(url);          // 缓存未命中才会真打，这里最多多一次
+    var total = j ? parseInt(j.total, 10) : 0;
+    return {'list': fromItems(j), 'total': isNaN(total) ? 0 : total};
+}
+
+/* ========================================================== 组合筛选池 */
+// 「选电影 / 选电视剧」页（explore-all）背后是 recommend，支持 tags 组合、
+// sort、评分区间。和上面的 recent_hot 是两个接口，各司其职。
+// rexxar 的 sort 语义（取自接口返回的 sorts 元数据，非猜测）：
+//   T=综合排序  U=近期热度  R=首映时间  S=高分优先
+//   注意 sort=T 在**不带任何 tags** 时服务端只回 8 条，所以默认一律用 U。
 function rxList(kind, tags, sort, start) {
-    var j = httpJson(rxUrl(kind, tags, sort, start));
+    var q = '?refresh=0&start=' + start + '&count=' + PAGE + '&uncollect=false&sort=' + sort;
+    if (tags) q += '&tags=' + enc(tags);
+    var j = httpJson(RX + '/' + kind + '/recommend' + q);
     var t = j ? parseInt(j.total, 10) : 0;
-    return {'list': fromRecommend(j), 'total': isNaN(t) ? 0 : t};
+    return {'list': fromItems(j), 'total': isNaN(t) ? 0 : t};
 }
 
 /* ==================================================== 语义映射 / 归一化 */
 
-// 热播电影第一行三档 → j/search 的 sort。
-// 兼容三种入参：本版的语义值、旧版的 U/R/S、以及万一传回中文名。
-// （v2 就吃过一次亏：宿主缓存了旧的 filterSelect 值，一直按首映时间取，
-//   界面上却看不出任何筛选生效的痕迹 —— 所以这里必须做兜底归一。）
-function normMovieSort(v) {
-    if (v === 'time' || v === 'R' || v === '首映时间' || v === '最新电影' || v === '最新') return 'time';
-    if (v === 'rank' || v === 'S' || v === '高分优先' || v === '豆瓣高分') return 'rank';
-    return 'recommend';
+// 电影分栏：filter 值 → recent_hot 的 category 中文值。
+// 兼容三种入参：本版语义值、旧版的 recommend/time/rank、以及中文名。
+// （v2/v3 都吃过亏：宿主会缓存旧的 filterSelect，界面上看不出筛选生效痕迹。
+//   所以这里必须做兜底归一，不能只认一种写法。）
+function normMovieCat(v) {
+    if (v === 'time' || v === 'R' || v === '最新' || v === '最新电影') return '最新';
+    if (v === 'rank' || v === 'S' || v === '豆瓣高分') return '豆瓣高分';
+    return '热门';
 }
 
-// 电影筛选里的排序档 → j/search sort
-function normFilterSort(v) {
-    if (v === 'R' || v === 'time') return 'time';
-    if (v === 'S' || v === 'rank') return 'rank';
-    return 'recommend'; // U / T / 空
-}
-
-// 同一档位在 rexxar 里的对应值
-function rxSortOf(jsSort) {
-    if (jsSort === 'time') return 'R';
-    if (jsSort === 'rank') return 'S';
-    return 'U';
-}
-
-// 热播剧集：TVBox 显示名 → j/search tag / rexxar tags
-// 「欧美剧」在豆瓣：j/search 叫「美剧」，rexxar 叫「欧美」（写「欧美剧」返回 0 条）
-// 「动画」在 j/search 只有「日本动画」有内容
-var TV_TAG = {
-    '': '热门', '综合': '热门', '国产剧': '国产剧', '欧美剧': '美剧',
-    '日剧': '日剧', '韩剧': '韩剧', '动画': '日本动画', '纪录片': '纪录片'
+// 电影地区：网页版 explore 的五个地区就是 recent_hot 的 type 原值
+var MOVIE_AREA = {
+    '': '全部', '全部': '全部', '华语': '华语', '欧美': '欧美', '韩国': '韩国', '日本': '日本'
 };
-var TV_RX = {
-    '': '', '综合': '', '国产剧': '国产剧', '欧美剧': '欧美',
-    '日剧': '日剧', '韩剧': '韩剧', '动画': '动画', '纪录片': '纪录片'
+
+// 剧集类型：显示名 → type 代码（取自接口返回的 tags 元数据）
+var TV_CODE = {
+    '': 'tv', '综合': 'tv', '国产剧': 'tv_domestic', '欧美剧': 'tv_american',
+    '日剧': 'tv_japanese', '韩剧': 'tv_korean', '动画': 'tv_animation', '纪录片': 'tv_documentary'
+};
+
+// 综艺地区：显示名 → type 代码（网页版写的是「国内 / 国外」，不是「华语」）
+var SHOW_CODE = {
+    '': 'show', '综合': 'show', '全部': 'show',
+    '国内': 'show_domestic', '华语': 'show_domestic', '国外': 'show_foreign'
 };
 
 /* ------------------------------------------------------------ 分类定义 */
@@ -287,7 +260,8 @@ var CLASSES = [
 // 每个 filter key 在宿主里占**一行**，数组顺序就是从上到下的行序。
 function buildFilters() {
     return {
-        // 第 1 行 3 项：热门 / 最新 / 高分    第 2 行 5 项：全部 + 4 个地区
+        // 第 1 行：三个 tab（网页版有「冷门佳片」，按需求不要）
+        // 第 2 行：网页版 explore 的五个地区
         'hot_movie': [
             {
                 'key': 'sort', 'name': '排序', 'value': [
@@ -306,6 +280,7 @@ function buildFilters() {
                 ]
             }
         ],
+        // 剧集：网页版只有「最近热门剧集」，地区维度是剧种
         'hot_tv': [
             {
                 'key': 'cat', 'name': '类型', 'value': [
@@ -319,11 +294,12 @@ function buildFilters() {
                 ]
             }
         ],
+        // 综艺：网页版「最近热门综艺」的地区是 国内 / 国外
         'hot_show': [
             {
                 'key': 'area', 'name': '地区', 'value': [
                     {'n': '全部', 'v': ''},
-                    {'n': '华语', 'v': '华语'},
+                    {'n': '国内', 'v': '国内'},
                     {'n': '国外', 'v': '国外'}
                 ]
             }
@@ -368,79 +344,37 @@ function home(filter) {
 
 /* ---------------------------------------------------------- category */
 
-// 热播电影：行1 三档（热门/最新/高分）× 行2 地区（全部/华语/欧美/韩国/日本）
-// j/search 里地区是 tag、三档是 sort，可以自由叠加 → 15 组全部与网页版同源。
+// 热播电影：4 个 tab × 5 个地区 = 20 组，全部与网页版 explore 同源同序。
 function hotMovie(extend, pg) {
     var start = (pg - 1) * PAGE;
-    var area = extend.area || '';
-    var sort = normMovieSort(extend.sort);
-    var list = jSearch('movie', area || '热门', sort, start);
-    var rs = rxSortOf(sort);
-    if (list === null) {
-        // 风控熔断 / 网络失败 → App 池兜底，保证不白屏
-        var r = rxList('movie', area, rs, start);
-        return pack(r.list, pg, r.total);
-    }
-    if (!list.length) {
-        // 真的空（例如某小地区 + 高分档）→ 再兜一次
-        var r2 = rxList('movie', area, rs, start);
-        if (r2.list.length) return pack(r2.list, pg, r2.total);
-    }
-    return pack(list, pg, 0);
+    var cat = normMovieCat(extend.sort);
+    var type = MOVIE_AREA.hasOwnProperty(extend.area) ? MOVIE_AREA[extend.area] : '全部';
+    var r = recentHot('movie', cat, type, start);
+    return pack(r.list, pg, r.total);
 }
 
-// 热播剧集：一行 7 档，全部走 sort=recommend（网页版「最近热门剧集」）
+// 热播剧集：category=tv，type 是剧种代码
 function hotTv(extend, pg) {
     var start = (pg - 1) * PAGE;
     var cat = extend.cat || '';
-    var tag = TV_TAG[cat] || '热门';
-    var list = jSearch('tv', tag, 'recommend', start);
-    var rxTags = TV_RX.hasOwnProperty(cat) ? TV_RX[cat] : '';
-    if (list === null) {
-        var r = rxList('tv', rxTags, 'U', start);
-        return pack(r.list, pg, r.total);
-    }
-    if (!list.length) {
-        var r2 = rxList('tv', rxTags, 'U', start);
-        if (r2.list.length) return pack(r2.list, pg, r2.total);
-    }
-    return pack(list, pg, 0);
+    var type = TV_CODE.hasOwnProperty(cat) ? TV_CODE[cat] : 'tv';
+    var r = recentHot('tv', 'tv', type, start);
+    return pack(r.list, pg, r.total);
 }
 
-// 热播综艺：
-//   「全部」= j/search tag=综艺（网页版同源，华语+国外天然混排，20 条纯综艺）
-//   「华语 / 国外」= j/search 没有地区维度，只能 rexxar tags=综艺,华语|国外
-//     （国外档用 sort=R：U 档会把《绝望写手》这种剧顶到前面，R 档全是真人秀）
+// 热播综艺：category=show，type 是 国内/国外 代码
 function hotShow(extend, pg) {
     var start = (pg - 1) * PAGE;
     var area = extend.area || '';
-    if (area === '国外') {
-        var r1 = rxList('tv', '综艺,国外', 'R', start);
-        if (r1.list.length) return pack(r1.list, pg, r1.total);
-        return hotShowAll(start, pg);
-    }
-    if (area === '华语') {
-        var r2 = rxList('tv', '综艺,华语', 'U', start);
-        if (r2.list.length) return pack(r2.list, pg, r2.total);
-        return hotShowAll(start, pg);
-    }
-    return hotShowAll(start, pg);
+    var type = SHOW_CODE.hasOwnProperty(area) ? SHOW_CODE[area] : 'show';
+    var r = recentHot('tv', 'show', type, start);
+    return pack(r.list, pg, r.total);
 }
 
-function hotShowAll(start, pg) {
-    var list = jSearch('tv', '综艺', 'recommend', start);
-    if (list === null || !list.length) {
-        var r = rxList('tv', '综艺', 'U', start);
-        if (r.list.length) return pack(r.list, pg, r.total);
-        return pack(list || [], pg, 0);
-    }
-    return pack(list, pg, 0);
-}
-
-// 电影筛选 / 电视筛选：组合条件（类型+地区+年代+平台）只有 rexxar 能做
-// —— 网页版的组合筛选走 j/new_search_subjects，按 IP 风控，放弃。
-// 例外：电影筛选在「没选类型、没选年代」时退化成「地区 + 排序」两维，
-// 这两种维度 j/search 完全支持，此时优先走 j/search，结果与网页版一致。
+// 电影筛选 / 电视筛选：组合条件（类型+地区+年代+平台）只有 rexxar recommend 能做，
+// 与网页版「选电影」页（explore-all）同源。
+// 注意：这里**不能**退化成 recent_hot —— 它的 category 只有四档，表达不了
+//      「类型 + 年代 + 平台」的任意组合；也不能退化成 j/search（不同池子）。
 function filterList(extend, pg, isTv) {
     var start = (pg - 1) * PAGE;
     var sort = extend.sort || 'U';
@@ -449,17 +383,6 @@ function filterList(extend, pg, isTv) {
     var area = extend.area || '';
     var year = extend.year || '';
     var platform = extend.platform || '';
-
-    if (!isTv && !genre && !year) {
-        var jsort = normFilterSort(sort);
-        var list = jSearch('movie', area || '热门', jsort, start);
-        if (list !== null) {
-            if (list.length) return pack(list, pg, 0);
-            var rr = rxList('movie', area, rxSortOf(jsort), start);
-            if (rr.list.length) return pack(rr.list, pg, rr.total);
-            return pack([], pg, 0);
-        }
-    }
 
     var tags = [];
     var base = '电影';
