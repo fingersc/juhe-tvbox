@@ -464,7 +464,6 @@ function detail(ids) {
     if (j.aka && j.aka.length) intro = intro + '\n\n又名：' + joinStr(j.aka);
     if (j.pubdate && j.pubdate.length) intro = intro + '\n上映：' + joinStr(j.pubdate);
     if (j.durations && j.durations.length) intro = intro + '\n片长：' + joinStr(j.durations);
-    intro = intro + '\n\n（豆瓣影视库只提供索引，播放请用搜索找对应片源）';
 
     var vod = {
         'vod_id': id,
