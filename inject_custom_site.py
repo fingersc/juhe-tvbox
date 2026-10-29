@@ -22,7 +22,7 @@ CUSTOM_SITES = [
         "key": "Douban",
         "name": "豆瓣影视库",
         "type": 3,
-        "api": "https://v4.gh-proxy.com/https://raw.githubusercontent.com/fingersc/juhe-tvbox/refs/heads/main/jar/douban.js?v=2",
+        "api": "https://cnb.cool/fingersc/iptv-sync/-/git/raw/main/douban.js",
         "indexs": 1,
         "searchable": 0,
         "quickSearch": 0,
