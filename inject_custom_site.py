@@ -22,7 +22,7 @@ CUSTOM_SITES = [
         "key": "Douban",
         "name": "豆瓣影视库",
         "type": 3,
-        "api": "https://cnb.cool/fingersc/iptv-sync/-/git/raw/main/douban.js",
+        "api": "https://cnb.cool/fingersc/Repository/-/git/raw/main/js/douban.js",
         "indexs": 1,
         "searchable": 0,
         "quickSearch": 0,
